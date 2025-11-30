@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  build:
+    name: Lint, Test & Build
+    runs-on: ubuntu-latest
+
+    env:
+      # TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      # TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+      NEXT_PUBLIC_API_URL: 'http://localhost:4000'
+      DATABASE_URL: 'postgresql://user:pass@localhost:5432/db'
+      REDIS_HOST: 'localhost'
+
+    steps:
+      - name: ⬇️ Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: 🥡 Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'pnpm'
+
+      - name: 📦 Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🧹 Lint
+        run: npx turbo run lint
+
+      # - name: 🧪 Unit Test
+      #   run: npx turbo run test
+
+      - name: 🏗️ Build
+        run: npx turbo run build
