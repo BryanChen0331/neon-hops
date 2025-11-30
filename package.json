@@ -1,5 +1,5 @@
 {
-  "name": "my-turborepo",
+  "name": "neon-hops",
   "private": true,
   "scripts": {
     "build": "turbo run build",
