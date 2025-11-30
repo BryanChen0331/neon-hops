@@ -1,135 +1,93 @@
-# Turborepo starter
+# Neon Hops 🍺
 
-This Turborepo starter is maintained by the Turborepo core team.
+**Neon Hops** is an interactive 3D brand activation platform developed for the collaboration between **Floating Brewing** and **Noise Fest**.
 
-## Using this example
+This project bridges the gap between craft beer culture and the indie music scene. It features an immersive WebGL experience, a generative 3D "Label Lab," and a high-concurrency ticketing system to drive user engagement and brand loyalty.
 
-Run the following command:
+## 💡 Project Concept & User Journey
 
-```sh
-npx create-turbo@latest
+The goal is to transform passive viewers into active participants through digital interaction.
+
+1.  **Immersive Storytelling:** Users enter a high-end 3D scrolling experience that visually merges the brewing process with sound waves.
+2.  **The Label Lab (Generative Game):** Users design their own custom beer label using a 3D editor. The final design is generated as an image asset for social sharing.
+3.  **Incentivized Conversion:** Users who save their label design gain exclusive access to the **"Time-Limited Free Ticket Giveaway"** for the Noise Fest.
+
+## 🚀 Technical Architecture
+
+This project adopts a **Hybrid Deployment Strategy** to optimize for both frontend performance (SEO/Edge) and backend reliability (Long-running processes).
+
+### 🎨 Frontend: Immersive & Interactive
+
+- **Engine:** **React Three Fiber (R3F)** ecosystem for declarative 3D scenes.
+- **Performance:** Utilizes **Zustand** for transient state updates to maintain 60FPS during complex animations, avoiding unnecessary React re-renders.
+- **Generative Art:** Implements custom shaders and canvas manipulation to generate unique user assets.
+- **Deployment:** **Vercel** (Edge Network) for optimal content delivery and SEO.
+
+### ⚡ Backend: High Concurrency & Reliability
+
+- **Traffic Shaping:** Uses **RabbitMQ** to handle burst traffic during ticket giveaways, queuing requests to protect the database.
+- **Concurrency Control:** Implements **Redis Distributed Locks** (Lua Scripts) to guarantee atomic inventory deduction and prevent overselling.
+- **Data Integrity:** Built on **PostgreSQL** with **Prisma Transactions** to ensure ACID compliance for user data.
+- **Deployment:** **Railway** (Docker Containerized) for stateful services and background workers.
+
+## 🛠 Tech Stack
+
+- **Monorepo:** Turborepo, pnpm
+- **Frontend:** Next.js 14 (App Router), TypeScript, Tailwind CSS, R3F, Zustand
+- **Backend:** NestJS, Prisma, PostgreSQL, Redis, RabbitMQ
+- **Validation:** Zod (Single Source of Truth shared between Web & API)
+- **DevOps:** Docker, GitHub Actions, Vercel, Railway
+
+## 📦 Project Structure
+
+```bash
+.
+├── apps
+│   ├── web/    # Next.js Application (Deployed on Vercel)
+│   └── api/    # NestJS Application (Deployed on Railway)
+└── packages    # Shared configurations (TS Types, Zod Schemas)
 ```
 
-## What's inside?
+## 🔧 Getting Started
 
-This Turborepo includes the following packages/apps:
+Ensure you have `Node.js (LTS)`, `pnpm`, and `Docker` installed.
 
-### Apps and Packages
+### 1. Install Dependencies
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+```bash
+pnpm install
 ```
 
-You can build a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+### 2. Start Infrastructure
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
+Start PostgreSQL and Redis containers using Docker Compose:
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+```bash
+docker-compose up -d
 ```
 
-### Develop
+### 3. Setup Environment Variables
 
-To develop all apps and packages, run the following command:
+Copy the example environment files and configure them (Database URL, Redis Host, etc.):
 
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+```bash
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+### 4. Run Development Server
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
+Start both Frontend and Backend in parallel:
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
+```bash
+pnpm dev
 ```
 
-### Remote Caching
+The applications will be available at:
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+- **Web:** <http://localhost:3000>
+- **API:** <http://localhost:4000>
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+---
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+_Designed & Developed for Technical Showcase._
