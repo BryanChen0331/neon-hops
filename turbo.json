@@ -1,8 +1,12 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
+<<<<<<< HEAD
   "globalEnv": ["CI"],
   "globalDependencies": ["**/.env.*local"],
+=======
+  "globalDependencies": ["**/.env.*local", "CI"],
+>>>>>>> c98809b (build: configure test scripts and turbo pipeline)
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
