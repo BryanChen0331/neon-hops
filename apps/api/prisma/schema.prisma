@@ -6,10 +6,87 @@ datasource db {
   provider = "postgresql"
 }
 
+// --------------------------------------
+// Domain: Neon Hops Core Business
+// --------------------------------------
+
+// 核心用戶模型
+// Design Decision: 採用 1-to-1 關聯限制用戶僅能持有一張有效票券，確保活動公平性。
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
   name      String?
+  
+  // Relations
+  designs   LabelDesign[]
+  ticket    Ticket?       
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// 酒標設計 (Label Lab Output)
+// Design Decision: 採 Reference Storage 策略，僅儲存圖片 CDN URL (String) 而非 Binary Blob，以優化資料庫效能。
+// 用途：作為搶票資格憑證 (Eligibility Token)。
+model LabelDesign {
+  id        String   @id @default(uuid())
+  imageUrl  String   
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  // Relations: 若該設計被用於兌換票券，則關聯至 Ticket
+  ticket    Ticket?
+
+  createdAt DateTime @default(now())
+}
+
+// 票券庫存池 (Inventory)
+// Design Decision: 針對高併發搶票 (Flash Sale) 情境設計。
+model TicketPool {
+  id             String   @id @default(uuid())
+  name           String   
+  totalCount     Int      
+  remainingCount Int      
+  
+  // Concurrency Control: Optimistic Locking (OCC)
+  // 使用 version 欄位處理 Race Condition，防止超賣 (Over-selling)。
+  // SQL: UPDATE ... SET version = version + 1 WHERE version = current_version
+  version        Int      @default(0) 
+
+  tickets        Ticket[]
+  
+  startAt        DateTime 
+  endAt          DateTime 
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// 票券實體
+// Integrity: 透過多重 Unique Constraints 確保資料一致性 (一人一票、一圖一票)。
+model Ticket {
+  id            String      @id @default(uuid())
+  
+  status        TicketStatus @default(VALID)
+  qrCode        String       @unique // 用於現場核銷 (Entry Validation)
+  usedAt        DateTime?    
+
+  // Relations
+  userId        String       @unique 
+  user          User         @relation(fields: [userId], references: [id])
+  
+  designId      String       @unique 
+  design        LabelDesign  @relation(fields: [designId], references: [id])
+  
+  poolId        String
+  pool          TicketPool   @relation(fields: [poolId], references: [id])
+
+  createdAt     DateTime     @default(now())
+}
+
+enum TicketStatus {
+  VALID     
+  USED      
+  REVOKED   
 }
