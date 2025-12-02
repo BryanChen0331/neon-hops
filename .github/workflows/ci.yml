@@ -39,8 +39,8 @@ jobs:
       - name: 🧹 Lint
         run: npx turbo run lint
 
-      # - name: 🧪 Unit Test
-      #   run: npx turbo run test
+      - name: 🧪 Unit Test
+        run: npx turbo run test
 
       - name: 🏗️ Build
         run: npx turbo run build
