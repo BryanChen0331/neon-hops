@@ -2,3 +2,16 @@ commit-msg:
   commands:
     commitlint:
       run: pnpm exec commitlint --edit {1}
+
+pre-commit:
+  parallel: true
+  commands:
+    lint-staged:
+      glob: '*.{js,ts,cjs,mjs,d.cts,d.mts,json,jsonc,tsx,jsx}'
+      run: npx lint-staged
+
+pre-push:
+  parallel: true
+  commands:
+    test:
+      run: pnpm test
