@@ -2,25 +2,46 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
+    container_name: neon_hops_db
     ports:
       - '5432:5432'
     environment:
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
-      POSTGRES_DB: neon_hops_db
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-neon_hops}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: always
+    networks:
+      - neon_network
+    restart: unless-stopped
+    # ✅ 加回這個，為了以後的自動化測試
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-neon_hops}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
+    container_name: neon_hops_redis
     ports:
       - '6379:6379'
     volumes:
       - redis_data:/data
-    restart: always
+    networks:
+      - neon_network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
 volumes:
   postgres_data:
   redis_data:
+
+networks:
+  neon_network:
+    driver: bridge
