@@ -57,6 +57,21 @@ services:
       timeout: 5s
       retries: 5
 
+  nginx:
+    image: nginx:alpine
+    container_name: neon_hops_gateway
+    ports:
+      - '8080:80'
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - neon_network
+    depends_on:
+      - rabbitmq
+      # - api    # 未來如果要依賴 API container 可以加
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
 volumes:
   postgres_data:
   redis_data:
