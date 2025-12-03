@@ -36,6 +36,10 @@ jobs:
       - name: 📦 Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      # 必須在 Lint 之前，否則 ESLint 讀不到型別會報錯
+      - name: 🧬 Generate Prisma Client
+        run: pnpm --filter api db:generate
+
       - name: 🧹 Lint
         run: npx turbo run lint
 
