@@ -1,17 +1,16 @@
-import { Controller, Post, Body, Query } from '@nestjs/common';
+import { Controller, Post, Body, Query, UsePipes } from '@nestjs/common';
 import { TicketService } from './ticket.service';
+import { ZodValidationPipe } from 'nestjs-zod';
+import { PurchaseTicketDto } from './dto/purchase-ticket.dto';
 
 @Controller('tickets')
 export class TicketController {
   constructor(private readonly ticketService: TicketService) {}
 
   @Post('purchase')
-  async purchase(
-    @Body('userId') userId: string,
-    @Body('poolId') poolId: string,
-    @Body('designId') designId: string
-  ) {
-    return await this.ticketService.purchaseTicket(userId, poolId, designId);
+  @UsePipes(ZodValidationPipe)
+  async purchase(@Body() body: PurchaseTicketDto) {
+    return await this.ticketService.purchaseTicket(body.userId, body.poolId, body.designId);
   }
 
   @Post('init-stock')

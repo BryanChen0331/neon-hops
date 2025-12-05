@@ -41,3 +41,6 @@ pnpm-debug.log*
 
 # Testing
 coverage
+
+# Local Load Testing
+load-test.js
