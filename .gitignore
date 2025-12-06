@@ -43,4 +43,4 @@ pnpm-debug.log*
 coverage
 
 # Local Load Testing
-load-test.js
+apps/api/k6/

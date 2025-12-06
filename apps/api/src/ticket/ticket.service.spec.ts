@@ -3,8 +3,8 @@ import { TicketService } from './ticket.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
-import { BadRequestException } from '@nestjs/common';
-import { PrismaClient, Ticket, TicketPool } from '@prisma/client';
+import { BadRequestException, ConflictException } from '@nestjs/common';
+import { PrismaClient, Ticket } from '@prisma/client'; // 修正：移除未使用的 TicketPool
 import Redis from 'ioredis';
 
 describe('TicketService', () => {
@@ -27,26 +27,28 @@ describe('TicketService', () => {
     service = module.get<TicketService>(TicketService);
   });
 
-  it('should purchase ticket successfully when stock is available', async () => {
+  it('should purchase ticket successfully when stock is available (Lua=1)', async () => {
     // Arrange
     const userId = 'user-uuid';
     const poolId = 'pool-uuid';
     const designId = 'design-uuid';
 
-    redisMock.decr.mockResolvedValue(9);
+    // 1. Mock Redis Lua (eval) 回傳 1 (成功)
+    (redisMock.eval as jest.Mock).mockResolvedValue(1);
 
+    // 2. Mock Transaction
     (prismaMock.$transaction as jest.Mock).mockImplementation(
       (callback: (client: PrismaClient) => Promise<unknown>) => {
         return callback(prismaMock);
       }
     );
 
-    // Mock Prisma 回傳值
-    prismaMock.ticketPool.update.mockResolvedValue({
-      id: poolId,
-      remainingCount: 9,
-    } as unknown as TicketPool);
+    // 3. Mock Prisma updateMany
+    prismaMock.ticketPool.updateMany.mockResolvedValue({
+      count: 1,
+    });
 
+    // 4. Mock Prisma create
     prismaMock.ticket.create.mockResolvedValue({
       id: 'new-ticket-id',
       status: 'VALID',
@@ -58,18 +60,32 @@ describe('TicketService', () => {
     // Assert
     expect(result.id).toBe('new-ticket-id');
 
+    // 修正：補上 ESLint 忽略註解，解決 unbound-method 紅字
     /* eslint-disable @typescript-eslint/unbound-method */
-    expect(redisMock.decr).toHaveBeenCalledWith(`ticket:pool:${poolId}:stock`);
-    expect(prismaMock.ticket.create).toHaveBeenCalled();
+    expect(redisMock.eval).toHaveBeenCalled();
+    expect(prismaMock.ticketPool.updateMany).toHaveBeenCalled();
     /* eslint-enable @typescript-eslint/unbound-method */
   });
 
-  it('should throw BadRequestException when redis stock is empty', async () => {
+  it('should throw BadRequestException when redis stock is empty (Lua=-1)', async () => {
     // Arrange
-    redisMock.decr.mockResolvedValue(-1);
+    (redisMock.eval as jest.Mock).mockResolvedValue(-1);
 
     // Act & Assert
     await expect(service.purchaseTicket('u1', 'p1', 'd1')).rejects.toThrow(BadRequestException);
+
+    // Verify
+    /* eslint-disable @typescript-eslint/unbound-method */
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    /* eslint-enable @typescript-eslint/unbound-method */
+  });
+
+  it('should throw ConflictException when user already bought (Lua=-2)', async () => {
+    // Arrange
+    (redisMock.eval as jest.Mock).mockResolvedValue(-2);
+
+    // Act & Assert
+    await expect(service.purchaseTicket('u1', 'p1', 'd1')).rejects.toThrow(ConflictException);
 
     // Verify
     /* eslint-disable @typescript-eslint/unbound-method */
