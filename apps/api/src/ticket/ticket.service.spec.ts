@@ -1,79 +1,136 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TicketService } from './ticket.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { REDIS_CLIENT } from '../redis/redis.module';
+import { TicketRedisRepository } from './repository/ticket.redis.repository';
+import { TicketRepository } from './repository/ticket.repository';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
-import { BadRequestException } from '@nestjs/common';
-import { PrismaClient, Ticket, TicketPool } from '@prisma/client';
-import Redis from 'ioredis';
+import {
+  BadRequestException,
+  ConflictException,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import { Ticket, TicketStatus } from '@prisma/client'; // 引入 Prisma 型別
 
 describe('TicketService', () => {
   let service: TicketService;
-  let prismaMock: DeepMockProxy<PrismaClient>;
-  let redisMock: DeepMockProxy<Redis>;
+  let redisRepoMock: DeepMockProxy<TicketRedisRepository>;
+  let dbRepoMock: DeepMockProxy<TicketRepository>;
 
   beforeEach(async () => {
-    prismaMock = mockDeep<PrismaClient>();
-    redisMock = mockDeep<Redis>();
+    redisRepoMock = mockDeep<TicketRedisRepository>();
+    dbRepoMock = mockDeep<TicketRepository>();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TicketService,
-        { provide: PrismaService, useValue: prismaMock },
-        { provide: REDIS_CLIENT, useValue: redisMock },
+        { provide: TicketRedisRepository, useValue: redisRepoMock },
+        { provide: TicketRepository, useValue: dbRepoMock },
       ],
     }).compile();
 
     service = module.get<TicketService>(TicketService);
   });
 
-  it('should purchase ticket successfully when stock is available', async () => {
-    // Arrange
+  describe('purchaseTicket', () => {
     const userId = 'user-uuid';
     const poolId = 'pool-uuid';
     const designId = 'design-uuid';
 
-    redisMock.decr.mockResolvedValue(9);
+    it('should purchase ticket successfully (Happy Path)', async () => {
+      // Arrange
+      redisRepoMock.tryReserveStock.mockResolvedValue(1);
 
-    (prismaMock.$transaction as jest.Mock).mockImplementation(
-      (callback: (client: PrismaClient) => Promise<unknown>) => {
-        return callback(prismaMock);
-      }
-    );
+      // 修正 1: 建構一個符合 Ticket 型別的 Mock 物件 (使用 as unknown as Ticket 繞過缺少的欄位)
+      const mockTicket = {
+        id: 'ticket-id',
+        status: TicketStatus.VALID, // 使用 Enum
+        userId,
+        poolId,
+        designId,
+        qrCode: 'mock-qr',
+        usedAt: null,
+        createdAt: new Date(),
+      } as unknown as Ticket;
 
-    // Mock Prisma 回傳值
-    prismaMock.ticketPool.update.mockResolvedValue({
-      id: poolId,
-      remainingCount: 9,
-    } as unknown as TicketPool);
+      dbRepoMock.createTicketWithOptimisticLock.mockResolvedValue(mockTicket);
 
-    prismaMock.ticket.create.mockResolvedValue({
-      id: 'new-ticket-id',
-      status: 'VALID',
-    } as unknown as Ticket);
+      // Act
+      const result = await service.purchaseTicket(userId, poolId, designId);
 
-    // Act
-    const result = await service.purchaseTicket(userId, poolId, designId);
+      // Assert
+      expect(result).toEqual(mockTicket);
 
-    // Assert
-    expect(result.id).toBe('new-ticket-id');
+      // 修正 2: 暫時關閉 unbound-method 檢查，這是 Jest Mock 的常見操作
 
-    /* eslint-disable @typescript-eslint/unbound-method */
-    expect(redisMock.decr).toHaveBeenCalledWith(`ticket:pool:${poolId}:stock`);
-    expect(prismaMock.ticket.create).toHaveBeenCalled();
-    /* eslint-enable @typescript-eslint/unbound-method */
-  });
+      const redisCallOrder = redisRepoMock.tryReserveStock.mock.invocationCallOrder[0];
+      const dbCallOrder = dbRepoMock.createTicketWithOptimisticLock.mock.invocationCallOrder[0];
+      expect(redisCallOrder).toBeLessThan(dbCallOrder);
+    });
 
-  it('should throw BadRequestException when redis stock is empty', async () => {
-    // Arrange
-    redisMock.decr.mockResolvedValue(-1);
+    it('should throw BadRequestException when sold out (Redis returns -1)', async () => {
+      // Arrange
+      redisRepoMock.tryReserveStock.mockResolvedValue(-1);
 
-    // Act & Assert
-    await expect(service.purchaseTicket('u1', 'p1', 'd1')).rejects.toThrow(BadRequestException);
+      // Act & Assert
+      await expect(service.purchaseTicket(userId, poolId, designId)).rejects.toThrow(
+        BadRequestException
+      );
 
-    // Verify
-    /* eslint-disable @typescript-eslint/unbound-method */
-    expect(prismaMock.$transaction).not.toHaveBeenCalled();
-    /* eslint-enable @typescript-eslint/unbound-method */
+      // Verify
+      /* eslint-disable @typescript-eslint/unbound-method */
+      expect(dbRepoMock.createTicketWithOptimisticLock).not.toHaveBeenCalled();
+      /* eslint-enable @typescript-eslint/unbound-method */
+    });
+
+    it('should throw ConflictException when duplicate purchase (Redis returns -2)', async () => {
+      // Arrange
+      redisRepoMock.tryReserveStock.mockResolvedValue(-2);
+
+      // Act & Assert
+      await expect(service.purchaseTicket(userId, poolId, designId)).rejects.toThrow(
+        ConflictException
+      );
+    });
+
+    it('should rollback Redis when DB fails (Atomic Rollback) with correct order', async () => {
+      // Arrange
+      redisRepoMock.tryReserveStock.mockResolvedValue(1);
+      // 模擬 DB 拋出一般系統錯誤
+      dbRepoMock.createTicketWithOptimisticLock.mockRejectedValue(new Error('Random DB Error'));
+
+      // Act & Assert
+      await expect(service.purchaseTicket(userId, poolId, designId)).rejects.toThrow(
+        InternalServerErrorException
+      );
+
+      // Verify
+      /* eslint-disable @typescript-eslint/unbound-method */
+      expect(redisRepoMock.rollbackStock).toHaveBeenCalledWith(userId, poolId);
+
+      const dbCallOrder = dbRepoMock.createTicketWithOptimisticLock.mock.invocationCallOrder[0];
+      const rollbackCallOrder = redisRepoMock.rollbackStock.mock.invocationCallOrder[0];
+
+      expect(dbCallOrder).toBeLessThan(rollbackCallOrder);
+      /* eslint-enable @typescript-eslint/unbound-method */
+    });
+
+    it('should NOT rollback Redis when DB throws ConflictException (P2002)', async () => {
+      // Arrange
+      redisRepoMock.tryReserveStock.mockResolvedValue(1);
+
+      // Repository 已經將 Prisma 錯誤轉為 ConflictException
+      dbRepoMock.createTicketWithOptimisticLock.mockRejectedValue(
+        new ConflictException('Duplicate')
+      );
+
+      // Act & Assert
+      await expect(service.purchaseTicket(userId, poolId, designId)).rejects.toThrow(
+        ConflictException
+      );
+
+      // Verify
+      /* eslint-disable @typescript-eslint/unbound-method */
+      expect(redisRepoMock.rollbackStock).not.toHaveBeenCalled();
+      /* eslint-enable @typescript-eslint/unbound-method */
+    });
   });
 });
