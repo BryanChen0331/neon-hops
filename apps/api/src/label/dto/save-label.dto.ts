@@ -2,8 +2,7 @@ import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
 const SaveLabelSchema = z.object({
-  userId: z.uuid(),
-  imageUrl: z.url(),
+  imageUrl: z.url().describe('Image URL from CDN/S3'),
 });
 
 export class SaveLabelDto extends createZodDto(SaveLabelSchema) {}
