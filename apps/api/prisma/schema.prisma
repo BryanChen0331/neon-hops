@@ -17,6 +17,12 @@ model User {
   email     String   @unique
   name      String?
   
+  // [新增] Google 登入需要的欄位
+  googleId  String?  @unique // 用於綁定 Google 帳號
+  avatar    String?  // 頭像 URL
+  
+  status    UserStatus @default(ACTIVE)
+  
   // Relations
   designs   LabelDesign[]
   ticket    Ticket?       
@@ -83,6 +89,11 @@ model Ticket {
   pool          TicketPool   @relation(fields: [poolId], references: [id])
 
   createdAt     DateTime     @default(now())
+}
+
+enum UserStatus {
+  ACTIVE
+  BANNED
 }
 
 enum TicketStatus {
