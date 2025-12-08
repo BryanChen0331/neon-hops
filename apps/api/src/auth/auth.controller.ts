@@ -17,7 +17,7 @@ export class AuthController {
 
   @Get('google')
   @UseGuards(GoogleAuthGuard)
-  async googleAuth() {
+  googleAuth() {
     // Passport redirect
   }
 
