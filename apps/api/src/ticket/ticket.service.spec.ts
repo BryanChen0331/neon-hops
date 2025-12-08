@@ -8,7 +8,7 @@ import {
   ConflictException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { Ticket, TicketStatus } from '@prisma/client'; // 引入 Prisma 型別
+import { Ticket, TicketStatus } from '@prisma/client';
 
 describe('TicketService', () => {
   let service: TicketService;
@@ -39,10 +39,9 @@ describe('TicketService', () => {
       // Arrange
       redisRepoMock.tryReserveStock.mockResolvedValue(1);
 
-      // 修正 1: 建構一個符合 Ticket 型別的 Mock 物件 (使用 as unknown as Ticket 繞過缺少的欄位)
       const mockTicket = {
         id: 'ticket-id',
-        status: TicketStatus.VALID, // 使用 Enum
+        status: TicketStatus.VALID,
         userId,
         poolId,
         designId,
@@ -58,8 +57,6 @@ describe('TicketService', () => {
 
       // Assert
       expect(result).toEqual(mockTicket);
-
-      // 修正 2: 暫時關閉 unbound-method 檢查，這是 Jest Mock 的常見操作
 
       const redisCallOrder = redisRepoMock.tryReserveStock.mock.invocationCallOrder[0];
       const dbCallOrder = dbRepoMock.createTicketWithOptimisticLock.mock.invocationCallOrder[0];

@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { TicketModule } from './ticket/ticket.module';
 import { LabelModule } from './label/label.module';
+import { AuthModule } from './auth/auth.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -15,6 +16,7 @@ import { LabelModule } from './label/label.module';
     RedisModule,
     TicketModule,
     LabelModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
